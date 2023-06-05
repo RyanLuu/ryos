@@ -13,9 +13,9 @@ _start:
   la gp, __global_pointer$
   .option pop
 
-	# Initialize stack pointer; 64K stack for each hart
+	# Initialize stack pointer to bottom of the hart's stack
 	la sp, __stack_start
-	li a0, 0x10000
+	la a0, __hart_stack_size
 	csrr a1, mhartid
 	addi a1, a1, 1
 	mul a0, a0, a1

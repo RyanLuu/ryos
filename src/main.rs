@@ -1,6 +1,12 @@
 #![no_main]
 #![no_std]
-#![feature(panic_info_message, int_roundings, pointer_byte_offsets)]
+#![feature(
+    panic_info_message,         // message() in panic handler
+    int_roundings,              // div_floor(), div_ceil()
+    pointer_byte_offsets,       // byte_offset(), byte_add(), byte_sub()
+    const_pointer_byte_offsets, // byte_offset(), byte_add(), byte_sub()
+    variant_count,              // variant_count<T>()
+)]
 
 extern "C" {
     fn kernel_vec();
@@ -8,38 +14,16 @@ extern "C" {
 
 use crate::csr::{
     MSTATUS_MPP, MSTATUS_MPP_S, PMPCFG_A, PMPCFG_A_TOR, PMPCFG_R, PMPCFG_W, PMPCFG_X, SIE_SEIE,
-    SIE_SSIE, SIE_STIE,
+    SIE_SSIE, SIE_STIE, SSTATUS_SIE,
 };
 use core::arch::asm;
 
-// ///////////////////////////////////
-// / RUST MACROS
-// ///////////////////////////////////
-#[macro_export]
-macro_rules! print {
-	($($args:tt)+) => ({
-			use core::fmt::Write;
-			let _ = write!(crate::uart::UartWriteMode::SYNC, $($args)+);
-			});
-}
-#[macro_export]
-macro_rules! println {
-	() => ({
-		   print!("\r\n")
-		   });
-	($fmt:expr) => ({
-			print!(concat!($fmt, "\r\n"))
-			});
-	($fmt:expr, $($args:tt)+) => ({
-			print!(concat!($fmt, "\r\n"), $($args)+)
-			});
-}
 #[macro_export]
 macro_rules! debug {
-	($($args:tt)+) => ({
-            print!("{:>4}: ", file!().rsplit_once('/').map(|s| s.1).unwrap_or(file!()).strip_suffix(".rs").unwrap_or(file!()));
-			println!($($args)*)
-			});
+    ($($args:tt)+) => {{
+        crate::print!("{:>4}: ", file!().rsplit('/').next().unwrap().strip_suffix(".rs").unwrap());
+        crate::println!($($args)*)
+    }};
 }
 
 // ///////////////////////////////////
@@ -48,6 +32,9 @@ macro_rules! debug {
 
 #[panic_handler]
 fn panic(info: &core::panic::PanicInfo) -> ! {
+    unsafe {
+        csr_write!(sie, 0);
+    }
     print!("Aborting: ");
     if let Some(p) = info.location() {
         println!(
@@ -78,6 +65,9 @@ extern "C" fn kinit() {
         // disable paging until the MMU is initialized
         csr_write!(satp, 0u64);
 
+        // allow supervisor interrupts
+        csr_set_bits!(sstatus, SSTATUS_SIE);
+
         // delegate interrupts and exceptions to supervisor
         csr_write!(medeleg, 0xffffu64);
         csr_write!(mideleg, 0xffffu64);
@@ -90,6 +80,10 @@ extern "C" fn kinit() {
         csr_write!(pmpaddr0, (1 << 54) - 1);
         csr_write_field!(pmpcfg0, PMPCFG_A, PMPCFG_A_TOR);
         csr_set_bits!(pmpcfg0, PMPCFG_R, PMPCFG_W, PMPCFG_X);
+
+        // write mhartid into tp
+        let hartid: u64 = csr_read!(mhartid);
+        reg_write!(tp, hartid);
 
         // switch to supervisor mode upon mret
         csr_write_field!(mstatus, MSTATUS_MPP, MSTATUS_MPP_S);
@@ -106,40 +100,31 @@ fn main() {
     // ready to start scheduling. The last thing this
     // should do is start the timer.
 
-    crate::kmem::init();
-    crate::mmu::init();
     crate::uart::init();
+    //    crate::kmem::init();
+    //    crate::mmu::init();
 
     // Now test println! macro!
+    debug!("Initialized hart {}", unsafe { reg_read!(tp) });
     println!();
     println!("===========");
     println!("RyOS v0.1.0");
     println!("===========");
     println!();
+    debug!("sie {:b}", unsafe { csr_read!(sie) });
 
     // Test reading from UART
-    loop {
-        if let Some(c) = uart::get() {
-            match c {
-                8 | 127 => {
-                    // backspace or del
-                    print!("{}{}{}", '\x08', ' ', '\x08');
-                }
-                10 | 13 => {
-                    // line feed or carriage return
-                    println!();
-                }
-                _ => {
-                    print!("{}", c as char);
-                }
-            }
-        }
-    }
+    loop {}
 }
 
 pub mod asms;
 pub mod csr;
 pub mod kmem;
+pub mod mmio;
 pub mod mmu;
+pub mod plic;
+pub mod reg;
 pub mod trap;
+pub mod tty;
 pub mod uart;
+pub mod util;

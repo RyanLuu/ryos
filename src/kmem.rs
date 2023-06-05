@@ -60,6 +60,7 @@ struct FreePage {
 }
 
 static mut FREE_LIST: *mut FreePage = null_mut();
+static mut NUM_PAGES_ALLOCED: u32 = 0;
 static mut INITIALIZED: bool = false;
 
 /// Initialize the kernel's heap memory so that
@@ -69,13 +70,14 @@ pub fn init() {
         FREE_LIST = null_mut();
         let mut ptr = page_ceil!(HEAP_START) as *mut FreePage;
         let heap_end: *mut FreePage = HEAP_END as *mut FreePage;
-        let mut num_heap_pages: u64 = 0;
+        let mut num_heap_pages: u32 = 0;
         while ptr.byte_add(PAGE_SIZE as usize) <= heap_end {
             (*ptr).next = FREE_LIST;
             FREE_LIST = ptr;
             ptr = ptr.byte_add(PAGE_SIZE as usize);
             num_heap_pages += 1;
         }
+        assert!(num_heap_pages == ((HEAP_END - HEAP_START) / PAGE_SIZE) as u32);
 
         debug!("Initializing page allocator");
         debug!("  text: 0x{:x}..0x{:x}", TEXT_START, TEXT_END);
@@ -101,7 +103,8 @@ pub fn kalloc() -> *mut u8 {
             null_mut()
         } else {
             let ptr = FREE_LIST;
-            FREE_LIST = (*FREE_LIST).next;
+            FREE_LIST = (*ptr).next;
+            NUM_PAGES_ALLOCED += 1;
             ptr as *mut u8
         }
     }
@@ -122,5 +125,6 @@ pub fn kfree(ptr: *mut u8) {
         let freed_page = ptr as *mut FreePage;
         (*freed_page).next = FREE_LIST;
         FREE_LIST = freed_page;
+        NUM_PAGES_ALLOCED -= 1;
     }
 }

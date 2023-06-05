@@ -1,6 +1,6 @@
 # ryos
 
-An operating system targeting RISC-V in Rust, based on Stephen Marz's blog[^1] and MIT PDOS's xv6-riscv.[^2]
+An operating system targeting RISC-V written in Rust, based on Stephen Marz's blog[^1] and MIT PDOS's xv6-riscv.[^2]
 
 Because ryos is my attempt to learn more about Rust, RISC-V, and operating system concepts,
 the source code generally aims for readability, rather than performance.

@@ -72,7 +72,10 @@ fi
 MACH="virt"
 CPUS=4
 MEM="128M"
-QEMU_FLAGS="-machine ${MACH} -cpu rv64 -smp ${CPUS} -m ${MEM} -nographic -serial mon:stdio -bios none -drive if=none,format=raw,file=${HARD_DRIVE},id=x0 -device virtio-blk-device,scsi=off,drive=x0"
+QEMU_FLAGS="-machine ${MACH} -smp ${CPUS} -m ${MEM} -nographic -bios none"
+QEMU_FLAGS+=" -global virtio-mmio.force-legacy=false"
+QEMU_FLAGS+=" -drive if=none,format=raw,file=${HARD_DRIVE},id=x0"
+QEMU_FLAGS+=" -device virtio-blk-device,scsi=off,drive=x0"
 
 if [[ $DUMP -eq 1 ]]; then
   mkdir -p target/dump

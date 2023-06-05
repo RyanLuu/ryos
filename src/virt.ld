@@ -47,11 +47,14 @@ SECTIONS
     PROVIDE(__bss_end = .);
   } >ram
 
+  PROVIDE(__num_harts = 4);
+  PROVIDE(__hart_stack_size = 64K);
+
   PROVIDE(__memory_start = ORIGIN(ram));
   PROVIDE(__memory_end = ORIGIN(ram) + LENGTH(ram));
 
   PROVIDE(__stack_start = __bss_end);
-  PROVIDE(__stack_end = __stack_start + 0x40000); /* 64K * 4 harts = 256K */
+  PROVIDE(__stack_end = __stack_start + (__num_harts * __hart_stack_size));
 
   PROVIDE(__heap_start = __stack_end);
   PROVIDE(__heap_end = __memory_end);

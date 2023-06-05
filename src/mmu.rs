@@ -1,7 +1,7 @@
 use crate::csr::{SATP_MODE, SATP_MODE_SV39, SATP_PPN};
 use crate::kmem::{
-    self, kalloc, kfree, BSS_END, BSS_START, DATA_END, DATA_START, PAGE_SIZE, RODATA_END,
-    RODATA_START, STACK_END, STACK_START, TEXT_END, TEXT_START, UART_BASE,
+    self, kalloc, kfree, BSS_END, BSS_START, CLINT_BASE, DATA_END, DATA_START, PAGE_SIZE,
+    PLIC_BASE, RODATA_END, RODATA_START, STACK_END, STACK_START, TEXT_END, TEXT_START, UART_BASE,
 };
 use crate::{csr_write, csr_write_field, page_ceil, page_floor, page_number};
 
@@ -55,6 +55,8 @@ pub fn init() {
         (*PAGE_TABLE).map_range(BSS_START, BSS_START, BSS_END, PTE_R | PTE_W);
         (*PAGE_TABLE).map_range(STACK_START, STACK_START, STACK_END, PTE_R | PTE_W);
         (*PAGE_TABLE).map(UART_BASE, UART_BASE, PTE_R | PTE_W, 0);
+        (*PAGE_TABLE).map_range(CLINT_BASE, CLINT_BASE, CLINT_BASE + 0x1_0000, PTE_R | PTE_W);
+        (*PAGE_TABLE).map_range(PLIC_BASE, PLIC_BASE, PLIC_BASE + 0x40_0000, PTE_R | PTE_W);
 
         // update SATP to enable virtual memory
         csr_write_field!(satp, SATP_MODE, SATP_MODE_SV39);
@@ -173,15 +175,15 @@ const PTE_VALID: u64 = 1 << 0;
 const PTE_R: u64 = 1 << 1;
 const PTE_W: u64 = 1 << 2;
 const PTE_X: u64 = 1 << 3;
-const PTE_USER: u64 = 1 << 4;
-const PTE_GLOBAL: u64 = 1 << 5;
-const PTE_ACCESSED: u64 = 1 << 6;
-const PTE_DIRTY: u64 = 1 << 7;
-const PTE_RSW: u64 = 0b11 << 8;
+const _PTE_USER: u64 = 1 << 4;
+const _PTE_GLOBAL: u64 = 1 << 5;
+const _PTE_ACCESSED: u64 = 1 << 6;
+const _PTE_DIRTY: u64 = 1 << 7;
+const _PTE_RSW: u64 = 0b11 << 8;
 const PTE_PPN: u64 = 0xfffffffffff << 10;
 const PTE_RESERVED: u64 = 0b111_1111 << 54;
 const PTE_PBMT: u64 = 0b11 << 61;
-const PTE_NAPOT: u64 = 1 << 63;
+const _PTE_NAPOT: u64 = 1 << 63;
 const PTE_RWX: u64 = PTE_R | PTE_W | PTE_X;
 
 /// Page table entry

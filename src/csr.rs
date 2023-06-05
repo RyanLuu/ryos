@@ -1,6 +1,5 @@
 /// Macros and constants for managing Control and Status Registers
 
-/// Read u64 value from CSR
 #[macro_export]
 macro_rules! csr_read {
     ($csr:ident) => ({
@@ -10,7 +9,6 @@ macro_rules! csr_read {
     });
 }
 
-/// Write u64 value to CSR
 #[macro_export]
 macro_rules! csr_write {
     ($csr:ident, $value:expr) => ({
@@ -91,6 +89,7 @@ pub const PMPCFG_R: u64 = 1 << 0;
 
 // 5.1.1 Supervisor Status Register
 pub const SSTATUS_SPP: u64 = 1 << 8;
+pub const SSTATUS_SIE: u64 = 1 << 1;
 
 // 5.1.3 Supervisor Interrupt Registers
 pub const SIE_SEIE: u64 = 1 << 9;

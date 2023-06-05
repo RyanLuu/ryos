@@ -1,4 +1,9 @@
-use crate::{csr::SSTATUS_SPP, csr_read, csr_read_field};
+use crate::{
+    csr::SSTATUS_SPP,
+    csr_read, csr_read_field,
+    plic::{self, PlicPrivilege},
+    uart,
+};
 
 #[repr(C)]
 pub struct TrapFrame {
@@ -49,6 +54,8 @@ impl SCause {
     }
 }
 
+pub const UART_IRQ: u32 = 0x0a;
+
 #[no_mangle]
 extern "C" fn kernel_trap() {
     unsafe {
@@ -61,6 +68,27 @@ extern "C" fn kernel_trap() {
         }
         if cause.should_panic() {
             panic!("Kernel trap 0x{:08x} {:064b} {:?}", epc, status, cause);
+        }
+        match cause {
+            SCause::SExternalInterrupt => {
+                // https://github.com/riscv/riscv-plic-spec/blob/master/riscv-plic.adoc
+                let irq: u32 = plic::claim(PlicPrivilege::Supervisor);
+                match irq {
+                    0 => {
+                        // no pending interrupts
+                        return;
+                    }
+                    UART_IRQ => {
+                        // either received a byte or transmit buffer is empty
+                        uart::handle_intr();
+                    }
+                    _ => {
+                        debug!("Unexpected PLIC IRQ {}", irq)
+                    }
+                }
+                plic::complete(PlicPrivilege::Supervisor, irq);
+            }
+            _ => {}
         }
     }
 }

@@ -1,8 +1,11 @@
 use crate::kmem::UART_BASE;
+use crate::mmio::MMIODevice;
 use crate::mmio::MMIORegister;
+use crate::mmio::RPerm;
+use crate::mmio::WPerm;
 use crate::plic;
+use crate::term;
 use crate::trap::UART_IRQ;
-use crate::tty;
 use crate::util::CircularBuffer;
 
 /// UART routines and driver
@@ -14,34 +17,49 @@ use core::fmt::Write;
 macro_rules! print {
     ($($args:tt)*) => {{
         use core::fmt::Write;
-        write!(crate::uart::Uart{}, $($args)*).unwrap();
+        write!(crate::uart::Uart::INTR{}, $($args)*).unwrap();
     }};
 }
 #[macro_export]
 macro_rules! println {
     ($($args:tt)*) => {{
         use core::fmt::Write;
-        writeln!(crate::uart::Uart{}, $($args)*).unwrap();
+        writeln!(crate::uart::Uart::INTR{}, $($args)*).unwrap();
+    }};
+}
+#[macro_export]
+macro_rules! print_sync {
+    ($($args:tt)*) => {{
+        use core::fmt::Write;
+        write!(crate::uart::Uart::SYNC{}, $($args)*).unwrap();
+    }};
+}
+#[macro_export]
+macro_rules! println_sync {
+    ($($args:tt)*) => {{
+        use core::fmt::Write;
+        writeln!(crate::uart::Uart::SYNC{}, $($args)*).unwrap();
     }};
 }
 
 const BAUD_RATE: usize = 2_400;
 
 // UART registers
-const RHR: UartRegister = UartRegister::read_only(0); // receive holding register (for input bytes)
-const THR: UartRegister = UartRegister::write_only(0); // transmit holding register (for output bytes)
-const DLL: UartRegister = UartRegister::write_only(0); // divisor latch LSB
-const IER: UartRegister = UartRegister::write_only(1); // interrupt enable register
-const DLM: UartRegister = UartRegister::write_only(1); // divisor latch MSB
+const UART_MMIO: MMIODevice<u8> = MMIODevice::new(UART_BASE);
+const RHR: MMIORegister<u8, RPerm> = UART_MMIO.reg(0); // receive holding register (for input bytes)
+const THR: MMIORegister<u8, WPerm> = UART_MMIO.reg(0); // transmit holding register (for output bytes)
+const DLL: MMIORegister<u8, WPerm> = UART_MMIO.reg(0); // divisor latch LSB
+const IER: MMIORegister<u8, WPerm> = UART_MMIO.reg(1); // interrupt enable register
+const DLM: MMIORegister<u8, WPerm> = UART_MMIO.reg(1); // divisor latch MSB
 const IER_RX_ENABLE: u8 = 1 << 0;
 const IER_TX_ENABLE: u8 = 1 << 1;
-const FCR: UartRegister = UartRegister::write_only(2); // FIFO control register
+const FCR: MMIORegister<u8, WPerm> = UART_MMIO.reg(2); // FIFO control register
 const FCR_FIFO_ENABLE: u8 = 1 << 0;
 const FCR_FIFO_RESET: u8 = 0b11 << 1; // clear the content of the two FIFOs
-const LCR: UartRegister = UartRegister::write_only(3); // line control register
+const LCR: MMIORegister<u8, WPerm> = UART_MMIO.reg(3); // line control register
 const LCR_EIGHT_BITS: u8 = 0b11 << 0;
 const LCR_BAUD_LATCH: u8 = 1 << 7; // special mode to set baud rate (DLAB)
-const LSR: UartRegister = UartRegister::read_only(5); // line status register
+const LSR: MMIORegister<u8, RPerm> = UART_MMIO.reg(5); // line status register
 const LSR_RX_READY: u8 = 1 << 0; // input is waiting to be read from RHR
 const LSR_TX_IDLE: u8 = 1 << 5; // THR can accept another character to send
 
@@ -53,7 +71,7 @@ pub fn handle_intr() {
         // receive as many bytes as possible
         while LSR.read() & LSR_RX_READY != 0 {
             let byte: u8 = RHR.read();
-            tty::handle_byte(byte);
+            term::handle_byte(byte);
         }
         // transmit as many bytes as possible
         try_flush();
@@ -71,12 +89,18 @@ fn try_flush() {
     }
 }
 
-pub struct Uart {}
+pub enum Uart {
+    SYNC,
+    INTR,
+}
 
 impl Write for Uart {
     fn write_str(&mut self, out: &str) -> Result<(), Error> {
         for byte in out.bytes() {
-            put(byte);
+            match self {
+                Self::SYNC => put_sync(byte),
+                Self::INTR => put(byte),
+            }
         }
         Ok(())
     }
@@ -99,6 +123,13 @@ pub fn put(byte: u8) {
         while TX_QUEUE.write(byte) == None {
             try_flush();
         }
+    }
+}
+
+pub fn put_sync(byte: u8) {
+    unsafe {
+        while (LSR.read() & LSR_TX_IDLE) == 0 {}
+        THR.write(byte);
     }
 }
 
@@ -143,5 +174,3 @@ pub fn init() {
         plic::set_threshold(plic::PlicPrivilege::Supervisor, 0);
     }
 }
-
-type UartRegister = MMIORegister<UART_BASE, u8>;

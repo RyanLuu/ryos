@@ -1,20 +1,20 @@
 use core::mem::variant_count;
 
 use crate::kmem::PLIC_BASE;
-use crate::mmio::MMIORegister;
+use crate::mmio::{MMIODevice, MMIORegister, RPerm, RWPerm, WPerm};
 use crate::reg_read;
 
 /// Manages the Platform Level Interrupt Controller
 /// https://github.com/riscv/riscv-plic-spec/blob/master/riscv-plic.adoc
 
-type PlicRegister = MMIORegister<PLIC_BASE, u32>;
+const PLIC_MMIO: MMIODevice<u32> = MMIODevice::new(PLIC_BASE);
 
-const PRIORITY0: PlicRegister = PlicRegister::write_only(0x0000);
-const PENDING0: PlicRegister = PlicRegister::new(0x1000);
-const ENABLE00: PlicRegister = PlicRegister::new(0x2000);
-const THRESHOLD0: PlicRegister = PlicRegister::write_only(0x20_0000);
-const CLAIM0: PlicRegister = PlicRegister::read_only(0x20_0004);
-const COMPLETE0: PlicRegister = PlicRegister::write_only(0x20_0004);
+const PRIORITY0: MMIORegister<u32, WPerm> = PLIC_MMIO.reg(0x0000);
+const PENDING0: MMIORegister<u32, RWPerm> = PLIC_MMIO.reg(0x1000);
+const ENABLE00: MMIORegister<u32, RWPerm> = PLIC_MMIO.reg(0x2000);
+const THRESHOLD0: MMIORegister<u32, WPerm> = PLIC_MMIO.reg(0x20_0000);
+const CLAIM0: MMIORegister<u32, RPerm> = PLIC_MMIO.reg(0x20_0004);
+const COMPLETE0: MMIORegister<u32, WPerm> = PLIC_MMIO.reg(0x20_0004);
 
 #[derive(Clone, Copy)]
 pub enum PlicPrivilege {

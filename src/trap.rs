@@ -5,14 +5,6 @@ use crate::{
     uart,
 };
 
-#[repr(C)]
-pub struct TrapFrame {
-    pub regs: [u64; 32],
-    pub satp: u64,
-    pub trap_stack: *mut u8,
-    pub hartid: u64,
-}
-
 const INTERRUPT: u64 = 1 << 63;
 #[repr(u64)]
 #[derive(Debug)]
@@ -71,22 +63,25 @@ extern "C" fn kernel_trap() {
         }
         match cause {
             SCause::SExternalInterrupt => {
-                // https://github.com/riscv/riscv-plic-spec/blob/master/riscv-plic.adoc
-                let irq: u32 = plic::claim(PlicPrivilege::Supervisor);
-                match irq {
-                    0 => {
-                        // no pending interrupts
-                        return;
+                // handle external interrupts until there are none left
+                loop {
+                    let irq: u32 = plic::claim(PlicPrivilege::Supervisor);
+                    match irq {
+                        0 => {
+                            // no pending interrupts
+                            return;
+                        }
+                        1..=8 => {}
+                        UART_IRQ => {
+                            // either received a byte or transmit buffer is empty
+                            uart::handle_intr();
+                        }
+                        _ => {
+                            debug!("Unexpected PLIC IRQ {}", irq)
+                        }
                     }
-                    UART_IRQ => {
-                        // either received a byte or transmit buffer is empty
-                        uart::handle_intr();
-                    }
-                    _ => {
-                        debug!("Unexpected PLIC IRQ {}", irq)
-                    }
+                    plic::complete(PlicPrivilege::Supervisor, irq);
                 }
-                plic::complete(PlicPrivilege::Supervisor, irq);
             }
             _ => {}
         }

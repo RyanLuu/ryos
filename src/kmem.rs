@@ -24,6 +24,16 @@ extern "C" {
 pub const CLINT_BASE: u64 = 0x0200_0000;
 pub const PLIC_BASE: u64 = 0x0C00_0000;
 pub const UART_BASE: u64 = 0x1000_0000;
+pub const VIRTIO_BASES: [u64; 8] = [
+    0x1000_1000,
+    0x1000_1000,
+    0x1000_1000,
+    0x1000_1000,
+    0x1000_1000,
+    0x1000_1000,
+    0x1000_1000,
+    0x1000_1000,
+];
 
 pub const PAGE_SIZE: u64 = 4096;
 pub const PAGE_OFFSET_MASK: u64 = PAGE_SIZE - 1;

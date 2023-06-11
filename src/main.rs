@@ -21,7 +21,7 @@ use core::arch::asm;
 #[macro_export]
 macro_rules! debug {
     ($($args:tt)+) => {{
-        crate::print!("{:>4}: ", file!().rsplit('/').next().unwrap().strip_suffix(".rs").unwrap());
+        crate::print!("{:>6}: ", file!().rsplit('/').next().unwrap().strip_suffix(".rs").unwrap());
         crate::println!($($args)*)
     }};
 }
@@ -35,16 +35,16 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
     unsafe {
         csr_write!(sie, 0);
     }
-    print!("Aborting: ");
+    print_sync!("Aborting: ");
     if let Some(p) = info.location() {
-        println!(
+        println_sync!(
             "line {}, file {}: {}",
             p.line(),
             p.file(),
             info.message().unwrap()
         );
     } else {
-        println!("no information available.");
+        println_sync!("no information available.");
     }
     abort();
 }
@@ -101,8 +101,9 @@ fn main() {
     // should do is start the timer.
 
     crate::uart::init();
-    //    crate::kmem::init();
-    //    crate::mmu::init();
+    crate::kmem::init();
+    crate::mmu::init();
+    crate::virtio::init();
 
     // Now test println! macro!
     debug!("Initialized hart {}", unsafe { reg_read!(tp) });
@@ -117,14 +118,16 @@ fn main() {
     loop {}
 }
 
-pub mod asms;
+pub mod asm;
 pub mod csr;
 pub mod kmem;
 pub mod mmio;
 pub mod mmu;
 pub mod plic;
 pub mod reg;
+pub mod string;
+pub mod term;
 pub mod trap;
-pub mod tty;
 pub mod uart;
 pub mod util;
+pub mod virtio;

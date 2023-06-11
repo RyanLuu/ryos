@@ -2,6 +2,7 @@ use crate::csr::{SATP_MODE, SATP_MODE_SV39, SATP_PPN};
 use crate::kmem::{
     self, kalloc, kfree, BSS_END, BSS_START, CLINT_BASE, DATA_END, DATA_START, PAGE_SIZE,
     PLIC_BASE, RODATA_END, RODATA_START, STACK_END, STACK_START, TEXT_END, TEXT_START, UART_BASE,
+    VIRTIO_BASES,
 };
 use crate::{csr_write, csr_write_field, page_ceil, page_floor, page_number};
 
@@ -55,6 +56,9 @@ pub fn init() {
         (*PAGE_TABLE).map_range(BSS_START, BSS_START, BSS_END, PTE_R | PTE_W);
         (*PAGE_TABLE).map_range(STACK_START, STACK_START, STACK_END, PTE_R | PTE_W);
         (*PAGE_TABLE).map(UART_BASE, UART_BASE, PTE_R | PTE_W, 0);
+        for base in VIRTIO_BASES {
+            (*PAGE_TABLE).map_range(base, base, base + 0x1000, PTE_R | PTE_W);
+        }
         (*PAGE_TABLE).map_range(CLINT_BASE, CLINT_BASE, CLINT_BASE + 0x1_0000, PTE_R | PTE_W);
         (*PAGE_TABLE).map_range(PLIC_BASE, PLIC_BASE, PLIC_BASE + 0x40_0000, PTE_R | PTE_W);
 

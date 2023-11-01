@@ -1,8 +1,9 @@
 use crate::{
+    cpu,
     csr::SSTATUS_SPP,
     csr_read, csr_read_field,
     plic::{self, PlicPrivilege},
-    uart,
+    proc, uart,
 };
 
 const INTERRUPT: u64 = 1 << 63;
@@ -62,6 +63,10 @@ extern "C" fn kernel_trap() {
             panic!("Kernel trap 0x{:08x} {:064b} {:?}", epc, status, cause);
         }
         match cause {
+            SCause::EnvCallFromUMode => {
+                debug!("EnvCall from User mode!");
+                handle_syscall();
+            }
             SCause::SExternalInterrupt => {
                 // handle external interrupts until there are none left
                 loop {
@@ -85,5 +90,11 @@ extern "C" fn kernel_trap() {
             }
             _ => {}
         }
+    }
+}
+
+fn handle_syscall() {
+    unsafe {
+        debug!("Syscall {}", proc!().frame.assume_init_ref().regs[17]);
     }
 }

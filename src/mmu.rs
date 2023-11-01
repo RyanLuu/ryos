@@ -81,7 +81,7 @@ impl PageTable {
     /// Properties of the newly mapped page can be set via `flags`. One of PTE_R, PTE_W, and
     /// PTE_X must be set. The size of the page is controlled via `level`: 0 for 4KiB, 1 for
     /// 2MiB, and 2 for 1GiB.
-    fn map(&mut self, vaddr: u64, paddr: u64, flags: u64, level: usize) {
+    pub fn map(&mut self, vaddr: u64, paddr: u64, flags: u64, level: usize) {
         assert!(
             (flags & PTE_PBMT == 0) &&  // Svpbmt not implemented
             (flags & PTE_RESERVED == 0) && // reserved for future standard use
@@ -161,7 +161,7 @@ impl PageTable {
         None
     }
 
-    fn free(&mut self) {
+    pub fn free(&mut self) {
         for i in 0..PAGE_TABLE_SIZE {
             let pte = &self.entries[i];
             if pte.is_valid() && !pte.is_leaf() {
@@ -175,20 +175,20 @@ impl PageTable {
     }
 }
 
-const PTE_VALID: u64 = 1 << 0;
-const PTE_R: u64 = 1 << 1;
-const PTE_W: u64 = 1 << 2;
-const PTE_X: u64 = 1 << 3;
-const _PTE_USER: u64 = 1 << 4;
-const _PTE_GLOBAL: u64 = 1 << 5;
-const _PTE_ACCESSED: u64 = 1 << 6;
-const _PTE_DIRTY: u64 = 1 << 7;
-const _PTE_RSW: u64 = 0b11 << 8;
-const PTE_PPN: u64 = 0xfffffffffff << 10;
-const PTE_RESERVED: u64 = 0b111_1111 << 54;
-const PTE_PBMT: u64 = 0b11 << 61;
-const _PTE_NAPOT: u64 = 1 << 63;
-const PTE_RWX: u64 = PTE_R | PTE_W | PTE_X;
+pub const PTE_VALID: u64 = 1 << 0;
+pub const PTE_R: u64 = 1 << 1;
+pub const PTE_W: u64 = 1 << 2;
+pub const PTE_X: u64 = 1 << 3;
+pub const PTE_USER: u64 = 1 << 4;
+pub const _PTE_GLOBAL: u64 = 1 << 5;
+pub const _PTE_ACCESSED: u64 = 1 << 6;
+pub const _PTE_DIRTY: u64 = 1 << 7;
+pub const _PTE_RSW: u64 = 0b11 << 8;
+pub const PTE_PPN: u64 = 0xfffffffffff << 10;
+pub const PTE_RESERVED: u64 = 0b111_1111 << 54;
+pub const PTE_PBMT: u64 = 0b11 << 61;
+pub const _PTE_NAPOT: u64 = 1 << 63;
+pub const PTE_RWX: u64 = PTE_R | PTE_W | PTE_X;
 
 /// Page table entry
 impl PTE {

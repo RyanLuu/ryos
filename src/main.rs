@@ -6,6 +6,7 @@
     pointer_byte_offsets,       // byte_offset(), byte_add(), byte_sub()
     const_pointer_byte_offsets, // byte_offset(), byte_add(), byte_sub()
     variant_count,              // variant_count<T>()
+    const_maybe_uninit_zeroed,
 )]
 
 extern "C" {
@@ -112,18 +113,25 @@ fn main() {
     println!("RyOS v0.1.0");
     println!("===========");
     println!();
-    debug!("sie {:b}", unsafe { csr_read!(sie) });
+
+    unsafe {
+        let mtimecmp = 0x0200_4000 as *mut u64;
+        let mtime = 0x0200_bff8 as *const u64;
+        mtimecmp.write_volatile(mtime.read_volatile() + 10_000_000);
+    }
 
     // Test reading from UART
     loop {}
 }
 
 pub mod asm;
+pub mod cpu;
 pub mod csr;
 pub mod kmem;
 pub mod mmio;
 pub mod mmu;
 pub mod plic;
+pub mod proc;
 pub mod reg;
 pub mod string;
 pub mod term;

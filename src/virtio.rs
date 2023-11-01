@@ -1,7 +1,6 @@
 use core::{
     mem::{size_of, MaybeUninit},
     ptr::null_mut,
-    sync::atomic::AtomicPtr,
 };
 
 use crate::{
@@ -49,7 +48,11 @@ struct Queue {
     pub used: *mut Used,
 }
 
-struct Device {
+enum Device {
+    Block(BlockDevice),
+}
+
+struct BlockDevice {
     pub queue: Queue,
 }
 
@@ -74,6 +77,15 @@ enum VirtIODeviceId {
     SCMI = 32,
     GPIO = 41,
     PMEM = 27,
+}
+
+#[repr(C)]
+struct BlockRequest {
+    pub typ: u32,
+    pub reserved: u32,
+    pub sector: u64,
+    pub data: *mut u8,
+    pub status: u8,
 }
 
 static mut VIRTIO_DEVICES: [MaybeUninit<Device>; 8] =
@@ -194,8 +206,8 @@ fn setup_block_device(mmio: MMIODevice<u32>, index: usize) {
         queue_device_l_reg.write((queue.used as u64 & 0xFFFF_FFFF) as u32);
         queue_device_h_reg.write((queue.used as u64 >> 32) as u32);
 
-        let device = Device { queue };
-        VIRTIO_DEVICES[index].write(device);
+        let device = BlockDevice { queue };
+        VIRTIO_DEVICES[index].write(Device::Block(device));
 
         queue_num_reg.write(VIRTIO_QUEUE_LEN as u32);
 
@@ -203,5 +215,13 @@ fn setup_block_device(mmio: MMIODevice<u32>, index: usize) {
 
         status |= STATUS_DRIVER_OK;
         status_reg.write(status);
+    }
+}
+
+pub fn block_op(index: usize, buffer: *mut u8, size: u32, offset: u64, write: bool) {
+    unsafe {
+        let dev = VIRTIO_DEVICES[index].assume_init_mut();
+        let sector = offset / 512;
+        todo!();
     }
 }
